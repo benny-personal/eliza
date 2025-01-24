@@ -995,7 +995,36 @@ export async function generateText({
                 elizaLogger.debug("Received response from Deepseek model.");
                 break;
             }
+            case ModelProviderName.MINIMAX: {
+                elizaLogger.debug("Initializing Minimax model.");
+                const serverUrl = models[provider].endpoint;
+                const minimax = createOpenAI({
+                    apiKey: apiKey,
+                    baseURL: serverUrl,
+                    fetch: runtime.fetch,
+                });
 
+                const { text: minimaxResponse } = await aiGenerateText({
+                    model: minimax.languageModel(model),
+                    prompt: context,
+                    temperature: temperature,
+                    system:
+                        runtime.character.system ??
+                        settings.SYSTEM_PROMPT ??
+                        undefined,
+                    tools: tools,
+                    onStepFinish: onStepFinish,
+                    maxSteps: maxSteps,
+                    maxTokens: max_response_length,
+                    frequencyPenalty: frequency_penalty,
+                    presencePenalty: presence_penalty,
+                    experimental_telemetry: experimental_telemetry,
+                });
+
+                response = minimaxResponse;
+                elizaLogger.debug("Received response from Minimax model.");
+                break;
+            }
             default: {
                 const errorMessage = `Unsupported provider: ${provider}`;
                 elizaLogger.error(errorMessage);
@@ -1925,6 +1954,8 @@ export async function handleProvider(
             return await handleOllama(options);
         case ModelProviderName.DEEPSEEK:
             return await handleDeepSeek(options);
+        case ModelProviderName.MINIMAX:
+            return await handleMinimax(options);
         default: {
             const errorMessage = `Unsupported provider: ${provider}`;
             elizaLogger.error(errorMessage);
@@ -2200,6 +2231,32 @@ async function handleDeepSeek({
     modelOptions,
 }: ProviderOptions): Promise<GenerateObjectResult<unknown>> {
     const openai = createOpenAI({ apiKey, baseURL: models.deepseek.endpoint });
+    return await aiGenerateObject({
+        model: openai.languageModel(model),
+        schema,
+        schemaName,
+        schemaDescription,
+        mode,
+        ...modelOptions,
+    });
+}
+
+/**
+ * Handles object generation for Minimax models.
+ *
+ * @param {ProviderOptions} options - Options specific to Minimax.
+ * @returns {Promise<GenerateObjectResult<unknown>>} - A promise that resolves to generated objects.
+ */
+async function handleMinimax({
+                                  model,
+                                  apiKey,
+                                  schema,
+                                  schemaName,
+                                  schemaDescription,
+                                  mode,
+                                  modelOptions,
+                              }: ProviderOptions): Promise<GenerateObjectResult<unknown>> {
+    const openai = createOpenAI({ apiKey, baseURL: models.minimax.endpoint });
     return await aiGenerateObject({
         model: openai.languageModel(model),
         schema,

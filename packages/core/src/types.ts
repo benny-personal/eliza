@@ -228,6 +228,7 @@ export type Models = {
     [ModelProviderName.AKASH_CHAT_API]: Model;
     [ModelProviderName.LIVEPEER]: Model;
     [ModelProviderName.DEEPSEEK]: Model;
+    [ModelProviderName.MINIMAX]: Model;
     [ModelProviderName.INFERA]: Model;
 };
 
@@ -263,7 +264,8 @@ export enum ModelProviderName {
     LIVEPEER = "livepeer",
     LETZAI = "letzai",
     DEEPSEEK="deepseek",
-    INFERA="infera"
+    INFERA="infera",
+    MINIMAX="minimax",
 }
 
 /**

@@ -998,6 +998,38 @@ export const models: Models = {
             },
         },
     },
+    [ModelProviderName.MINIMAX]: {
+        endpoint: "https://api.minimax.chat/v1",
+        model: {
+            [ModelClass.SMALL]: {
+                name:  settings.SMALL_MINIMAX_MODEL || "abab6.5s-chat",
+                stop: [],
+                maxInputTokens: 128000,
+                maxOutputTokens: 8192,
+                frequency_penalty: 0.4,
+                presence_penalty: 0.4,
+                temperature: 0.4,
+            },
+            [ModelClass.MEDIUM]: {
+                name: settings.MEDIUM_MINIMAX_MODEL || "abab6.5s-chat",
+                stop: [],
+                maxInputTokens: 128000,
+                maxOutputTokens: 8192,
+                frequency_penalty: 0.4,
+                presence_penalty: 0.4,
+                temperature: 0.4,
+            },
+            [ModelClass.LARGE]: {
+                name: settings.LARGE_MINIMAX_MODEL || "abab6.5s-chat",
+                stop: [],
+                maxInputTokens: 128000,
+                maxOutputTokens: 8192,
+                frequency_penalty: 0.4,
+                presence_penalty: 0.4,
+                temperature: 0.4,
+            },
+        },
+    },
 };
 
 export function getModelSettings(
