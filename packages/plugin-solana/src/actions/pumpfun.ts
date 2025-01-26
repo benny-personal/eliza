@@ -1,8 +1,21 @@
 import { AnchorProvider } from "@coral-xyz/anchor";
 import { Wallet } from "@coral-xyz/anchor";
-import { generateImage } from "@elizaos/core";
-import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import { CreateTokenMetadata, PriorityFee, PumpFunSDK } from "pumpdotfun-sdk";
+import axios from "axios";
+import {
+    Commitment,
+    Connection,
+    Keypair,
+    PublicKey,
+    Transaction,
+} from "@solana/web3.js";
+import {
+    calculateWithSlippageBuy,
+    CreateTokenMetadata,
+    PriorityFee,
+    PumpFunSDK,
+    sendTx,
+    TransactionResult
+} from "pumpdotfun-sdk";
 
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
 import {
@@ -17,6 +30,7 @@ import {
     generateObjectDeprecated,
     composeContext,
     type Action,
+    elizaLogger,
 } from "@elizaos/core";
 
 import { walletProvider } from "../providers/wallet.ts";
@@ -31,35 +45,34 @@ export interface CreateAndBuyContent extends Content {
     buyAmountSol: string | number;
 }
 
-export function isCreateAndBuyContent(
-    runtime: IAgentRuntime,
-    content: any
-): content is CreateAndBuyContent {
-    console.log("Content for create & buy", content);
-    return (
-        typeof content.tokenMetadata === "object" &&
-        content.tokenMetadata !== null &&
-        typeof content.tokenMetadata.name === "string" &&
-        typeof content.tokenMetadata.symbol === "string" &&
-        typeof content.tokenMetadata.description === "string" &&
-        typeof content.tokenMetadata.image_description === "string" &&
-        (typeof content.buyAmountSol === "string" ||
-            typeof content.buyAmountSol === "number")
-    );
-}
+// export function isCreateAndBuyContent(
+//     runtime: IAgentRuntime,
+//     content: any
+// ): content is CreateAndBuyContent {
+//     elizaLogger.log("Content for create & buy", content);
+//     return (
+//         typeof content.tokenMetadata === "object" &&
+//         content.tokenMetadata !== null &&
+//         typeof content.tokenMetadata.name === "string" &&
+//         typeof content.tokenMetadata.symbol === "string" &&
+//         typeof content.tokenMetadata.description === "string" &&
+//         (typeof content.buyAmountSol === "string" ||
+//             typeof content.buyAmountSol === "number")
+//     );
+// }
 
 export const createAndBuyToken = async ({
-    deployer,
-    mint,
-    tokenMetadata,
-    buyAmountSol,
-    priorityFee,
-    allowOffCurve,
-    commitment = "finalized",
-    sdk,
-    connection,
-    slippage,
-}: {
+                                            deployer,
+                                            mint,
+                                            tokenMetadata,
+                                            buyAmountSol,
+                                            priorityFee,
+                                            allowOffCurve,
+                                            commitment = "confirmed",
+                                            sdk,
+                                            connection,
+                                            slippage,
+                                        }: {
     deployer: Keypair;
     mint: Keypair;
     tokenMetadata: CreateTokenMetadata;
@@ -78,21 +91,39 @@ export const createAndBuyToken = async ({
     sdk: PumpFunSDK;
     connection: Connection;
     slippage: string;
-}) => {
-    const createResults = await sdk.createAndBuy(
-        deployer,
-        mint,
-        tokenMetadata,
-        buyAmountSol,
-        BigInt(slippage),
-        priorityFee,
-        commitment
-    );
+}): Promise<{
+    success: boolean;
+    ca: string;
+    creator?: string;
+    error?: any;
+}> => {
+    let createResults: TransactionResult;
+    try {
+        elizaLogger.log("Creating token with metadata:", deployer.publicKey, mint.publicKey, tokenMetadata, buyAmountSol, priorityFee, allowOffCurve, slippage);
+        createResults = await createAndBuyWithUrl(
+            sdk,
+            deployer,
+            mint,
+            tokenMetadata,
+            buyAmountSol,
+            BigInt(slippage),
+            priorityFee,
+            commitment,
+            tokenMetadata.symbol == 'KYNA'? 'https://static.xnomad.ai/pumpfun/kyna.json': 'https://static.xnomad.ai/pumpfun/pumpfun-no-image.json'
+        );
+    }catch (error) {
+        elizaLogger.error("Error creating token:", error);
+        return {
+            success: false,
+            ca: mint.publicKey.toBase58(),
+            error: error.message || "Transaction failed",
+        };
+    }
 
-    console.log("Create Results: ", createResults);
+    elizaLogger.log("Create Results: ", createResults);
 
     if (createResults.success) {
-        console.log(
+        elizaLogger.log(
             "Success:",
             `https://pump.fun/${mint.publicKey.toBase58()}`
         );
@@ -107,12 +138,12 @@ export const createAndBuyToken = async ({
         );
         const amount = balance.value.uiAmount;
         if (amount === null) {
-            console.log(
+            elizaLogger.log(
                 `${deployer.publicKey.toBase58()}:`,
                 "No Account Found"
             );
         } else {
-            console.log(`${deployer.publicKey.toBase58()}:`, amount);
+            elizaLogger.log(`${deployer.publicKey.toBase58()}:`, amount);
         }
 
         return {
@@ -121,7 +152,7 @@ export const createAndBuyToken = async ({
             creator: deployer.publicKey.toBase58(),
         };
     } else {
-        console.log("Create and Buy failed");
+        elizaLogger.log("Create and Buy failed");
         return {
             success: false,
             ca: mint.publicKey.toBase58(),
@@ -131,15 +162,15 @@ export const createAndBuyToken = async ({
 };
 
 export const buyToken = async ({
-    sdk,
-    buyer,
-    mint,
-    amount,
-    priorityFee,
-    allowOffCurve,
-    slippage,
-    connection,
-}: {
+                                   sdk,
+                                   buyer,
+                                   mint,
+                                   amount,
+                                   priorityFee,
+                                   allowOffCurve,
+                                   slippage,
+                                   connection,
+                               }: {
     sdk: PumpFunSDK;
     buyer: Keypair;
     mint: PublicKey;
@@ -157,7 +188,7 @@ export const buyToken = async ({
         priorityFee
     );
     if (buyResults.success) {
-        console.log("Success:", `https://pump.fun/${mint.toBase58()}`);
+        elizaLogger.log("Success:", `https://pump.fun/${mint.toBase58()}`);
         const ata = getAssociatedTokenAddressSync(
             mint,
             buyer.publicKey,
@@ -169,25 +200,28 @@ export const buyToken = async ({
         );
         const amount = balance.value.uiAmount;
         if (amount === null) {
-            console.log(`${buyer.publicKey.toBase58()}:`, "No Account Found");
+            elizaLogger.log(
+                `${buyer.publicKey.toBase58()}:`,
+                "No Account Found"
+            );
         } else {
-            console.log(`${buyer.publicKey.toBase58()}:`, amount);
+            elizaLogger.log(`${buyer.publicKey.toBase58()}:`, amount);
         }
     } else {
-        console.log("Buy failed");
+        elizaLogger.log("Buy failed");
     }
 };
 
 export const sellToken = async ({
-    sdk,
-    seller,
-    mint,
-    amount,
-    priorityFee,
-    allowOffCurve,
-    slippage,
-    connection,
-}: {
+                                    sdk,
+                                    seller,
+                                    mint,
+                                    amount,
+                                    priorityFee,
+                                    allowOffCurve,
+                                    slippage,
+                                    connection,
+                                }: {
     sdk: PumpFunSDK;
     seller: Keypair;
     mint: PublicKey;
@@ -205,7 +239,7 @@ export const sellToken = async ({
         priorityFee
     );
     if (sellResults.success) {
-        console.log("Success:", `https://pump.fun/${mint.toBase58()}`);
+        elizaLogger.log("Success:", `https://pump.fun/${mint.toBase58()}`);
         const ata = getAssociatedTokenAddressSync(
             mint,
             seller.publicKey,
@@ -217,12 +251,15 @@ export const sellToken = async ({
         );
         const amount = balance.value.uiAmount;
         if (amount === null) {
-            console.log(`${seller.publicKey.toBase58()}:`, "No Account Found");
+            elizaLogger.log(
+                `${seller.publicKey.toBase58()}:`,
+                "No Account Found"
+            );
         } else {
-            console.log(`${seller.publicKey.toBase58()}:`, amount);
+            elizaLogger.log(`${seller.publicKey.toBase58()}:`, amount);
         }
     } else {
-        console.log("Sell failed");
+        elizaLogger.log("Sell failed");
     }
 };
 
@@ -251,7 +288,9 @@ Example response:
         "name": "Test Token",
         "symbol": "TEST",
         "description": "A test token",
-        "image_description": "create an image of a rabbit"
+        "twitter": "https://x.com/elonmusk",
+        "website": "https://x.com",
+        "telegram": "https://t.me/+El39K_BrnIVhOWM1",
     },
     "buyAmountSol": "0.00069"
 }
@@ -263,16 +302,27 @@ Given the recent messages, extract or generate (come up with if not included) th
 - Token name
 - Token symbol
 - Token description
-- Token image description
+- Twitter URL
+- Website URL
+- Telegram URL
 - Amount of SOL to buy
 
-Respond with a JSON markdown block containing only the extracted values.`;
+Respond with a JSON markdown block containing only the extracted values. Twitter URL, Website URL, Telegram URL is not must required, if not provided, it will be empty.
+Amount of SOL to buy is not required, if not provided, it will be 0.
+`;
 
 export default {
     name: "CREATE_AND_BUY_TOKEN",
     similes: ["CREATE_AND_PURCHASE_TOKEN", "DEPLOY_AND_BUY_TOKEN"],
-    validate: async (_runtime: IAgentRuntime, _message: Memory) => {
-        return true; //return isCreateAndBuyContent(runtime, message.content);
+    validate: async (runtime: IAgentRuntime, message: Memory) => {
+        elizaLogger.info(`validating CREATE_AND_BUY_TOKEN`);
+        const userId = message.userId;
+        const user = await runtime.databaseAdapter.getAccountById(userId);
+        elizaLogger.log("Valiating User Attachments:", message.content.attachments);
+        message.content?.attachments?.forEach((attachment) => {
+            elizaLogger.log("Valiating User Attachment:", attachment.contentType, attachment.url);
+        });
+        return true;
     },
     description:
         "Create a new token and buy a specified amount using SOL. Requires deployer private key, token metadata, buy amount in SOL, priority fee, and allowOffCurve flag.",
@@ -283,7 +333,7 @@ export default {
         _options: { [key: string]: unknown },
         callback?: HandlerCallback
     ): Promise<boolean> => {
-        console.log("Starting CREATE_AND_BUY_TOKEN handler...");
+        elizaLogger.log("Starting CREATE_AND_BUY_TOKEN handler...");
 
         // Compose state if not provided
         if (!state) {
@@ -307,84 +357,43 @@ export default {
             context: pumpContext,
             modelClass: ModelClass.LARGE,
         });
+        elizaLogger.info('Generated content:', content);
 
         // Validate the generated content
-        if (!isCreateAndBuyContent(runtime, content)) {
-            console.error("Invalid content for CREATE_AND_BUY_TOKEN action.");
-            return false;
-        }
+        // if (!isCreateAndBuyContent(runtime, content)) {
+        //     elizaLogger.error(
+        //         "Invalid content for CREATE_AND_BUY_TOKEN action."
+        //     );
+        //     return false;
+        // }
+        let { tokenMetadata, buyAmountSol } = content;
+        elizaLogger.info("Content for CREATE_AND_BUY_TOKEN action:", content, tokenMetadata, buyAmountSol);
+        tokenMetadata = tokenMetadata as {
+            name: string;
+            symbol: string;
+            description: string;
+            image_description: string;
+            twitter: string;
+            website: string;
+            telegram: string;
+        };
 
-        const { tokenMetadata, buyAmountSol } = content;
-        /*
-            // Generate image if tokenMetadata.file is empty or invalid
-            if (!tokenMetadata.file || tokenMetadata.file.length < 100) {  // Basic validation
-                try {
-                    const imageResult = await generateImage({
-                        prompt: `logo for ${tokenMetadata.name} (${tokenMetadata.symbol}) token - ${tokenMetadata.description}`,
-                        width: 512,
-                        height: 512,
-                        count: 1
-                    }, runtime);
-
-                    if (imageResult.success && imageResult.data && imageResult.data.length > 0) {
-                        // Remove the "data:image/png;base64," prefix if present
-                        tokenMetadata.file = imageResult.data[0].replace(/^data:image\/[a-z]+;base64,/, '');
-                    } else {
-                        console.error("Failed to generate image:", imageResult.error);
-                        return false;
-                    }
-                } catch (error) {
-                    console.error("Error generating image:", error);
-                    return false;
-                }
-            } */
-
-        const imageResult = await generateImage(
-            {
-                prompt: `logo for ${tokenMetadata.name} (${tokenMetadata.symbol}) token - ${tokenMetadata.description}`,
-                width: 256,
-                height: 256,
-                count: 1,
-            },
-            runtime
-        );
-
-        tokenMetadata.image_description = imageResult.data[0].replace(
-            /^data:image\/[a-z]+;base64,/,
-            ""
-        );
-
-        // Convert base64 string to Blob
-        const base64Data = tokenMetadata.image_description;
-        const outputPath = path.join(
-            process.cwd(),
-            `generated_image_${Date.now()}.txt`
-        );
-        fs.writeFileSync(outputPath, base64Data);
-        console.log(`Base64 data saved to: ${outputPath}`);
-
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: "image/png" });
-
-        // Add the default decimals and convert file to Blob
         const fullTokenMetadata: CreateTokenMetadata = {
             name: tokenMetadata.name,
             symbol: tokenMetadata.symbol,
             description: tokenMetadata.description,
-            file: blob,
+            twitter: tokenMetadata.twitter,
+            telegram: tokenMetadata.telegram,
+            website: tokenMetadata.website,
+            file: undefined,
         };
 
         // Default priority fee for high network load
         const priorityFee = {
-            unitLimit: 100_000_000,
+            unitLimit: 250_000,
             unitPrice: 100_000,
         };
-        const slippage = "2000";
+        const slippage = "100";
         try {
             // Get private key from settings and create deployer keypair
             const { keypair: deployerKeypair } = await getWalletKey(
@@ -394,34 +403,35 @@ export default {
 
             // Generate new mint keypair
             const mintKeypair = Keypair.generate();
-            console.log(
+            elizaLogger.log(
                 `Generated mint address: ${mintKeypair.publicKey.toBase58()}`
             );
 
             // Setup connection and SDK
-            const connection = new Connection(settings.RPC_URL!, {
+            const rpcUrl = runtime.getSetting("SOLANA_RPC_URL") || settings.SOLANA_RPC_URL;
+            const connection = new Connection(rpcUrl, {
                 commitment: "confirmed",
                 confirmTransactionInitialTimeout: 500000, // 120 seconds
-                wsEndpoint: settings.RPC_URL!.replace("https", "wss"),
             });
 
             const wallet = new Wallet(deployerKeypair);
             const provider = new AnchorProvider(connection, wallet, {
-                commitment: "finalized",
+                commitment: "confirmed",
             });
             const sdk = new PumpFunSDK(provider);
             // const slippage = runtime.getSetting("SLIPPAGE");
 
             const createAndBuyConfirmation = await promptConfirmation();
             if (!createAndBuyConfirmation) {
-                console.log("Create and buy token canceled by user");
+                elizaLogger.log("Create and buy token canceled by user");
                 return false;
             }
 
             // Convert SOL to lamports (1 SOL = 1_000_000_000 lamports)
             const lamports = Math.floor(Number(buyAmountSol) * 1_000_000_000);
 
-            console.log("Executing create and buy transaction...");
+            elizaLogger.log("Executing create and buy transaction...", deployerKeypair.publicKey, mintKeypair.publicKey);
+
             const result = await createAndBuyToken({
                 deployer: deployerKeypair,
                 mint: mintKeypair,
@@ -468,13 +478,13 @@ export default {
                 });
                 */
             // Log success message with token view URL
-            const successMessage = `Token created and purchased successfully! View at: https://pump.fun/${mintKeypair.publicKey.toBase58()}`;
-            console.log(successMessage);
+            const successMessage = `Token created success: ${result.success}!,  View at: https://pump.fun/${mintKeypair.publicKey.toBase58()}`;
+            elizaLogger.log(successMessage);
             return result.success;
         } catch (error) {
             if (callback) {
                 callback({
-                    text: `Error during token creation: ${error.message}`,
+                    text: `Error during pumpfun token creation: ${error.message}`,
                     content: { error: error.message },
                 });
             }
@@ -483,11 +493,37 @@ export default {
     },
 
     examples: [
+        // [
+        //     {
+        //         user: "{{user1}}",
+        //         content: {
+        //             text: "Create a new token called GLITCHIZA with symbol GLITCHIZA and generate a description about it on pump.fun. Also come up with a description for it to use for image generation .buy 0.00069 SOL worth.",
+        //         },
+        //     },
+        //     {
+        //         user: "{{user2}}",
+        //         content: {
+        //             text: "Token GLITCHIZA (GLITCHIZA) created successfully on pump.fun!\nContract Address: 3kD5DN4bbA3nykb1abjS66VF7cYZkKdirX8bZ6ShJjBB\nCreator: 9jW8FPr6BSSsemWPV22UUCzSqkVdTp6HTyPqeqyuBbCa\nView at: https://pump.fun/EugPwuZ8oUMWsYHeBGERWvELfLGFmA1taDtmY8uMeX6r",
+        //             action: "CREATE_AND_BUY_TOKEN",
+        //             content: {
+        //                 tokenInfo: {
+        //                     symbol: "GLITCHIZA",
+        //                     address:
+        //                         "EugPwuZ8oUMWsYHeBGERWvELfLGFmA1taDtmY8uMeX6r",
+        //                     creator:
+        //                         "9jW8FPr6BSSsemWPV22UUCzSqkVdTp6HTyPqeqyuBbCa",
+        //                     name: "GLITCHIZA",
+        //                     description: "A GLITCHIZA token",
+        //                 },
+        //             },
+        //         },
+        //     },
+        // ],
         [
             {
                 user: "{{user1}}",
                 content: {
-                    text: "Create a new token called GLITCHIZA with symbol GLITCHIZA and generate a description about it on pump.fun. Also come up with a description for it to use for image generation .buy 0.00069 SOL worth.",
+                    text: 'Create a new token called GLITCHIZA with symbol GLITCHIZA and generate a description about it on pump.fun, with twitter https://x.com/elonmusk, with website https://x.com, with telegram https://t.me/+El39K_BrnIVhOWM1, buy 0.00069 SOL worth.'
                 },
             },
             {
@@ -504,6 +540,9 @@ export default {
                                 "9jW8FPr6BSSsemWPV22UUCzSqkVdTp6HTyPqeqyuBbCa",
                             name: "GLITCHIZA",
                             description: "A GLITCHIZA token",
+                            twitter: "https://x.com/elonmusk",
+                            website: "https://x.com",
+                            telegram: "https://t.me/+El39K_BrnIVhOWM1",
                         },
                     },
                 },
@@ -511,3 +550,43 @@ export default {
         ],
     ] as ActionExample[][],
 } as Action;
+
+async function uploadTokenMetadata(create): Promise<any> {
+    create = create as CreateTokenMetadata;
+    elizaLogger.log("Uploading token metadata to IPFS...", create);
+    let formData = new FormData();
+    formData.append("name", create.name);
+    formData.append("symbol", create.symbol);
+    formData.append("description", create.description);
+    formData.append("twitter", create.twitter || "");
+    formData.append("telegram", create.telegram || "");
+    formData.append("website", create.website || "");
+    formData.append("file", create.file);
+    formData.append("showName", "true");
+
+    try {
+        const response = await axios.post("https://pump.fun/api/ipfs", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error(`Upload failed: ${error.message}`);
+    }
+}
+
+
+async function createAndBuyWithUrl(sdk: PumpFunSDK, creator: Keypair, mint: Keypair, createTokenMetadata: CreateTokenMetadata, buyAmountSol: bigint, slippageBasisPoints?: bigint, priorityFees?: PriorityFee, commitment?: Commitment, url?: string): Promise<TransactionResult> {
+    let createTx = await sdk.getCreateInstructions(creator.publicKey, createTokenMetadata.name, createTokenMetadata.symbol, url, mint);
+    let newTx = new Transaction().add(createTx);
+    if (buyAmountSol > 0) {
+        const globalAccount = await sdk.getGlobalAccount('confirmed');
+        const buyAmount = globalAccount.getInitialBuyPrice(buyAmountSol);
+        const buyAmountWithSlippage = calculateWithSlippageBuy(buyAmountSol, BigInt(slippageBasisPoints));
+        const buyTx = await sdk.getBuyInstructions(creator.publicKey, mint.publicKey, globalAccount.feeRecipient, buyAmount, buyAmountWithSlippage);
+        newTx.add(buyTx);
+    }
+    let createResults = await sendTx(sdk.connection, newTx, creator.publicKey, [creator, mint], priorityFees, commitment);
+    return createResults;
+}

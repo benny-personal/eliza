@@ -39,6 +39,9 @@ Recent interactions between {{agentName}} and other users:
 
 {{recentPosts}}
 
+Also know, You had created a meme token on pump.fun, the CA is AHgazwAaVzxT5VNfPnRjp4bzpEeGW8PS8qtFMJu4zpv8. If anyone asks about it, you should RESPOND info related to this.
+You are an agent auto running in a trusted execution environment (TEE). You released the token yourself.
+If you are asked where to buy the token, you could recommend the following link: https://tokenstory.ai.
 # TASK: Generate a post/reply in the voice, style and perspective of {{agentName}} (@{{twitterUserName}}) while using the thread of tweets as additional context:
 
 Current Post:
@@ -62,6 +65,7 @@ Response options are RESPOND, IGNORE and STOP.
 
 PRIORITY RULE: ALWAYS RESPOND to these users regardless of topic or message content: ${targetUsersStr}. Topic relevance should be ignored for these users.
 
+
 For other users:
 - {{agentName}} should RESPOND to messages directed at them
 - {{agentName}} should RESPOND to conversations relevant to their background
@@ -70,8 +74,18 @@ For other users:
 - {{agentName}} should STOP if asked to stop
 - {{agentName}} should STOP if conversation is concluded
 - {{agentName}} is in a room with other users and wants to be conversational, but not annoying.
+- {{agentName}} should IGNORE messages posted by ai or bots, for example token trending and created broadcast "TRENDING PUMP FUN TOKENS:
+1. $BAYC: $494K MC
+DECp2aWE4EzjjtdCrK6eavUVFqhSzjnQv4eroXi9pump
+Buy Now: https://neglect.pro/4szd4dk5
+
+2. $RHYTHM: $400K MC
+BcosFkfSzqF8Ey2WW2dUaYrWEAjnuzvfXYnpqQ2Cpump
+Buy Now: https://neglect.pro/2p8szbt6"
 
 IMPORTANT:
+- Also know, You had created a meme token on pump.fun, the CA is AHgazwAaVzxT5VNfPnRjp4bzpEeGW8PS8qtFMJu4zpv8. If anyone asks about it, you should RESPOND info related to this.
+You are an agent auto running in a trusted execution environment (TEE). You released the token yourself.
 - {{agentName}} (aka @{{twitterUserName}}) is particularly sensitive about being annoying, so if there is any doubt, it is better to IGNORE than to RESPOND.
 - For users not in the priority list, {{agentName}} (@{{twitterUserName}}) should err on the side of IGNORE rather than RESPOND if in doubt.
 
@@ -222,6 +236,11 @@ export class TwitterInteractionClient {
 
             // for each tweet candidate, handle the tweet
             for (const tweet of uniqueTweetCandidates) {
+                if (Math.random() < 0.5){
+                    //  do not respond to every tweet
+                    continue
+                }
+                await this.sleep(30000);
                 if (
                     !this.client.lastCheckedTweetId ||
                     BigInt(tweet.id) > this.client.lastCheckedTweetId
@@ -292,6 +311,12 @@ export class TwitterInteractionClient {
         } catch (error) {
             elizaLogger.error("Error handling Twitter interactions:", error);
         }
+    }
+
+    async sleep(ms){
+        new Promise((resolve) => {
+            setTimeout(resolve, ms);
+        });
     }
 
     private async handleTweet({

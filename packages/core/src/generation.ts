@@ -346,6 +346,37 @@ export async function generateText({
                 break;
             }
 
+            case ModelProviderName.DEEPSEEK: {
+                elizaLogger.debug("Initializing Deepseek model.");
+                const serverUrl = models[provider].endpoint;
+                const deepseek = createOpenAI({
+                    apiKey,
+                    baseURL: serverUrl,
+                    fetch: runtime.fetch,
+                });
+
+                const { text: deepseekResponse } = await aiGenerateText({
+                    model: deepseek.languageModel(model),
+                    prompt: context,
+                    temperature: temperature,
+                    system:
+                        runtime.character.system ??
+                        settings.SYSTEM_PROMPT ??
+                        undefined,
+                    tools: tools,
+                    onStepFinish: onStepFinish,
+                    maxSteps: maxSteps,
+                    maxTokens: max_response_length,
+                    frequencyPenalty: frequency_penalty,
+                    presencePenalty: presence_penalty,
+                    experimental_telemetry: experimental_telemetry,
+                });
+
+                response = deepseekResponse;
+                elizaLogger.debug("Received response from Deepseek model.");
+                break;
+            }
+
             case ModelProviderName.ETERNALAI: {
                 elizaLogger.debug("Initializing EternalAI model.");
                 const openai = createOpenAI({
@@ -1643,6 +1674,8 @@ export async function handleProvider(
         case ModelProviderName.NANOGPT:
         case ModelProviderName.AKASH_CHAT_API:
             return await handleOpenAI(options);
+        case ModelProviderName.DEEPSEEK:
+            return await handleDeepSeek(options);
         case ModelProviderName.ANTHROPIC:
         case ModelProviderName.CLAUDE_VERTEX:
             return await handleAnthropic(options);
@@ -1688,6 +1721,32 @@ async function handleOpenAI({
 }: ProviderOptions): Promise<GenerateObjectResult<unknown>> {
     const baseURL = models.openai.endpoint || undefined;
     const openai = createOpenAI({ apiKey, baseURL });
+    return await aiGenerateObject({
+        model: openai.languageModel(model),
+        schema,
+        schemaName,
+        schemaDescription,
+        mode,
+        ...modelOptions,
+    });
+}
+
+/**
+ * Handles object generation for DeepSeek models.
+ *
+ * @param {ProviderOptions} options - Options specific to DeepSeek.
+ * @returns {Promise<GenerateObjectResult<unknown>>} - A promise that resolves to generated objects.
+ */
+async function handleDeepSeek({
+                                  model,
+                                  apiKey,
+                                  schema,
+                                  schemaName,
+                                  schemaDescription,
+                                  mode,
+                                  modelOptions,
+                              }: ProviderOptions): Promise<GenerateObjectResult<unknown>> {
+    const openai = createOpenAI({ apiKey, baseURL: models.deepseek.endpoint });
     return await aiGenerateObject({
         model: openai.languageModel(model),
         schema,

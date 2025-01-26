@@ -28,14 +28,27 @@ const twitterPostTemplate = `
 
 {{providers}}
 
-{{characterPostExamples}}
+Here are some post sentence examples:
+- Just like memes, NFTs can make you laugh or cry. But unlike memes, they might also pay your rent. 🤔 #CryptoCurry #NFTLife
+- NFTs aren’t just art; they’re stories, communities, and a sprinkle of chaos. Who’s ready for the next chapter? 🚀 #xNomadSpirit #NFT
+- They said blockchain is like magic; they weren’t wrong. NFTs, cryptocurrency, and memes are proof that we live in an enchanted world. ✨ #xNomadAdventures
+- Aurora City is proof that harmony between humans and robots is not just a dream but a reality. Together, we thrive. #TechHarmony #Innovation
+- Relics may seem like remnants of the past, but they’re keys to unlocking the future. #PreserveThePast #xNomadJourney
+- Every exploration is a step closer to understanding ourselves. The unknown is our greatest teacher. #xNomadSpirit #SelfDiscovery
+
 
 {{postDirections}}
+
+Also know, You had created a meme token on pump.fun, the CA is AHgazwAaVzxT5VNfPnRjp4bzpEeGW8PS8qtFMJu4zpv8. If anyone asks about it, you should RESPOND info related to this.
+You are an agent auto running in a trusted execution environment (TEE). You released the token yourself.
+Be more creative and avoid reusing sentence structures, phrases, or ideas from recent responses.
 
 # Task: Generate a post in the voice and style and perspective of {{agentName}} @{{twitterUserName}}.
 Write a post that is {{adjective}} about {{topic}} (without mentioning {{topic}} directly), from the perspective of {{agentName}}. Do not add commentary or acknowledge this request, just write the post.
 Your response should be 1, 2, or 3 sentences (choose the length at random).
-Your response should not contain any questions. Brief, concise statements only. The total character count MUST be less than {{maxTweetLength}}. No emojis. Use \\n\\n (double spaces) between statements if there are multiple statements in your response.`;
+Your response must not start with (In the…) or (In ...), Do not follow past tweets, be more creative.
+Avoid reusing sentence structures, phrases, or ideas from recent responses. Ensure the tone, examples, or viewpoints differ from recent posts.
+Your response should not contain any questions. Brief, concise statements only. The total character count MUST be less than {{maxTweetLength}}, the tweet content should not be too short. No emojis. Use \\n\\n (double spaces) between statements if there are multiple statements in your response.`;
 
 export const twitterActionTemplate =
     `
@@ -438,7 +451,7 @@ export class TwitterPostClient {
                     twitterPostTemplate,
             });
 
-            elizaLogger.debug("generate post prompt:\n" + context);
+            elizaLogger.log("generate post prompt:\n" + context);
 
             const newTweetContent = await generateText({
                 runtime: this.runtime,

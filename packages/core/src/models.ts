@@ -20,6 +20,22 @@ export const models: Models = {
             [ModelClass.IMAGE]: settings.IMAGE_OPENAI_MODEL || "dall-e-3",
         },
     },
+    [ModelProviderName.DEEPSEEK]: {
+        endpoint: settings.DEEPSEEK_API_URL || "https://api.deepseek.com",
+        settings: {
+            stop: [],
+            maxInputTokens: 128000,
+            maxOutputTokens: 8192,
+            frequency_penalty: 0.0,
+            presence_penalty: 0.0,
+            temperature: 0.6,
+        },
+        model: {
+            [ModelClass.SMALL]: settings.SMALL_DEEPSEEK_MODEL || "deepseek-chat",
+            [ModelClass.MEDIUM]: settings.MEDIUM_DEEPSEEK_MODEL || "deepseek-chat",
+            [ModelClass.LARGE]: settings.LARGE_DEEPSEEK_MODEL || "deepseek-chat",
+        },
+    },
     [ModelProviderName.ETERNALAI]: {
         endpoint: settings.ETERNALAI_URL,
         settings: {

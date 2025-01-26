@@ -31,6 +31,8 @@ export default defineConfig({
         proxy: {
             "/api": {
                 target: `http://127.0.0.1:${process.env.SERVER_PORT || 3000}`,
+                // target: `https://8f3031d4d475aca882625b335e34ba8b57b250bd-3000.dstack-prod4.phala.network`,
+                // target: `https://3000-xnomadai-core-0nekbiexrmi.ws-us117.gitpod.io`,
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api/, ""),
             },

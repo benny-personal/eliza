@@ -1,6 +1,6 @@
 {
-    "name": "@elizaos/client-twitter",
-    "version": "0.1.7",
+    "name": "@everimbaq/client-twitter",
+    "version": "0.0.7-beta.3",
     "type": "module",
     "main": "dist/index.js",
     "module": "dist/index.js",

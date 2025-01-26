@@ -24,13 +24,13 @@ export const solanaPlugin: Plugin = {
     actions: [
         executeSwap,
         pumpfun,
-        fomo,
+        // fomo,
         transferToken,
-        executeSwapForDAO,
-        take_order,
+        // executeSwapForDAO,
+        // take_order,
     ],
-    evaluators: [trustEvaluator],
-    providers: [walletProvider, trustScoreProvider],
+    evaluators: [],
+    providers: [],
 };
 
 export default solanaPlugin;
