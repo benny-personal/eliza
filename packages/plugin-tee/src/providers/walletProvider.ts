@@ -291,8 +291,8 @@ const walletProvider: Provider = {
                     keypair: Keypair;
                     attestation: RemoteAttestationQuote;
                 } = await deriveKeyProvider.deriveEd25519Keypair(
-                    "/",
                     runtime.getSetting("WALLET_SECRET_SALT"),
+                    "solana",
                     agentId
                 );
                 publicKey = derivedKeyPair.keypair.publicKey;

@@ -176,13 +176,13 @@ const deriveKeyProvider: Provider = {
                 const secretSalt =
                     runtime.getSetting("WALLET_SECRET_SALT") || "secret_salt";
                 const solanaKeypair = await provider.deriveEd25519Keypair(
-                    "/",
                     secretSalt,
+                    "solana",
                     agentId
                 );
                 const evmKeypair = await provider.deriveEcdsaKeypair(
-                    "/",
                     secretSalt,
+                    "evm",
                     agentId
                 );
                 return JSON.stringify({
